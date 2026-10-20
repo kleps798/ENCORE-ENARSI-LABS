@@ -1,0 +1,110 @@
+# NAT Lab 1 — Static NAT, Dynamic NAT and PAT
+
+## 1. Overview
+
+This lab demonstrates Network Address Translation (NAT) using Cisco IOS routers in PNETLab. It covers Static NAT, Dynamic NAT using a public address pool, and Port Address Translation (PAT) using the outside interface address.
+
+## 2. Lab Objectives
+
+- Understand inside-local, inside-global, outside-local and outside-global addresses.
+- Configure and verify Static NAT.
+- Configure Dynamic NAT using an address pool and access control list.
+- Configure PAT using the outside interface address and the `overload` keyword.
+- Verify translations and NAT statistics.
+- Troubleshoot NAT configuration and translation issues.
+
+## 3. Topology and Addressing
+
+| Device | Interface | IP address |
+|---|---|---|
+| PC1 | e0 | 192.168.10.10/24 |
+| R1 | Gi0/0 — inside | 192.168.10.1/24 |
+| R1 | Gi0/1 — outside | 203.0.113.1/24 |
+| R2 | Gi0/0 | 203.0.113.2/24 |
+| R2 | Gi0/1 | 198.51.100.1/24 |
+| Server1 | e0 | 198.51.100.10/24 |
+
+Static routes were configured to provide end-to-end reachability between the inside LAN and the server network.
+
+## 4. NAT Inside and Outside
+
+R1 uses the following interface roles:
+
+```cisco
+interface GigabitEthernet0/0
+ ip nat inside
+
+interface GigabitEthernet0/1
+ ip nat outside
+```
+
+## 5. Static NAT
+
+Static NAT maps one inside-local address to a fixed inside-global address.
+
+Example used during the lab:
+
+```cisco
+ip nat inside source static 192.168.10.10 203.0.113.10
+```
+
+Verification:
+
+```cisco
+show ip nat translations
+show ip nat statistics
+```
+
+## 6. Dynamic NAT
+
+Dynamic NAT allocates addresses from a configured pool.
+
+```cisco
+access-list 10 permit 192.168.10.0 0.0.0.255
+ip nat pool NAT-POOL 203.0.113.10 203.0.113.20 netmask 255.255.255.0
+ip nat inside source list 10 pool NAT-POOL
+```
+
+Dynamic NAT uses the pool to allocate addresses to eligible inside hosts. Without overload, each simultaneously translated inside host generally needs its own available pool address.
+
+## 7. Port Address Translation (PAT)
+
+The lab then switched to interface-based PAT:
+
+```cisco
+ip nat inside source list 10 interface GigabitEthernet0/1 overload
+```
+
+PAT allows multiple inside hosts or sessions to share R1's outside interface address, `203.0.113.1`. TCP/UDP sessions are distinguished using port translations; ICMP uses identifiers rather than TCP/UDP ports.
+
+The Dynamic NAT pool is not required for this interface-based PAT configuration.
+
+## 8. Verification and Troubleshooting
+
+Commands used:
+
+```cisco
+show ip nat translations
+show ip nat statistics
+show access-lists 10
+show running-config | include ip nat
+show running-config interface GigabitEthernet0/0
+show running-config interface GigabitEthernet0/1
+show ip route
+```
+
+Testing confirmed end-to-end reachability and showed PC1's traffic translated to `203.0.113.1` after PAT was configured.
+
+## 9. Key Learning Outcomes
+
+- Static NAT provides a fixed one-to-one mapping.
+- Dynamic NAT allocates addresses from a pool.
+- PAT uses address-and-session information to allow many sessions to share an IP address.
+- The NAT inside/outside interface roles and the matching NAT rule must be correct.
+- NAT translations and statistics are essential troubleshooting tools.
+
+## 10. Lab Environment
+
+- PNETLab
+- Cisco IOS virtual routers
+- VPCS / server node
